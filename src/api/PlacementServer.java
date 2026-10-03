@@ -16,11 +16,15 @@ public class PlacementServer {
 
         try {
 
-            HttpServer server =
-                    HttpServer.create(
-                        new InetSocketAddress(8081),
-                        0
-                    );
+            int port = Integer.parseInt(
+        System.getenv().getOrDefault("PORT", "8081")
+);
+
+HttpServer server =
+        HttpServer.create(
+            new InetSocketAddress("0.0.0.0", port),
+            0
+        );
 
             // =========================
             // STUDENTS API
@@ -122,7 +126,10 @@ public class PlacementServer {
                         e.printStackTrace();
                     }
 
-                    sendResponse(exchange, response.toString());
+                    sendResponse(
+                        exchange,
+                        response.toString()
+                    );
                 }
             );
 
@@ -219,7 +226,10 @@ public class PlacementServer {
                         e.printStackTrace();
                     }
 
-                    sendResponse(exchange, response.toString());
+                    sendResponse(
+                        exchange,
+                        response.toString()
+                    );
                 }
             );
 
@@ -324,7 +334,91 @@ public class PlacementServer {
                         e.printStackTrace();
                     }
 
-                    sendResponse(exchange, response.toString());
+                    sendResponse(
+                        exchange,
+                        response.toString()
+                    );
+                }
+            );
+
+
+            // =========================
+            // DASHBOARD API
+            // =========================
+
+            server.createContext(
+                "/dashboard",
+                exchange -> {
+
+                    StringBuilder response =
+                            new StringBuilder();
+
+                    String sql =
+                            "SELECT " +
+                            "(SELECT COUNT(*) FROM students) AS students, " +
+                            "(SELECT COUNT(*) FROM companies) AS companies, " +
+                            "(SELECT COUNT(*) FROM placements) AS applications, " +
+                            "(SELECT COUNT(*) FROM placements " +
+                            "WHERE status = 'Selected') AS selected";
+
+                    try (
+                        Connection connection =
+                                DatabaseConnection.getConnection();
+
+                        PreparedStatement statement =
+                                connection.prepareStatement(sql);
+
+                        ResultSet result =
+                                statement.executeQuery()
+                    ) {
+
+                        if (result.next()) {
+
+                            response.append("{");
+
+                            response.append("\"students\":");
+                            response.append(
+                                result.getInt("students")
+                            );
+
+                            response.append(",");
+
+                            response.append("\"companies\":");
+                            response.append(
+                                result.getInt("companies")
+                            );
+
+                            response.append(",");
+
+                            response.append("\"applications\":");
+                            response.append(
+                                result.getInt("applications")
+                            );
+
+                            response.append(",");
+
+                            response.append("\"selected\":");
+                            response.append(
+                                result.getInt("selected")
+                            );
+
+                            response.append("}");
+                        }
+
+                    } catch (Exception e) {
+
+                        response =
+                            new StringBuilder(
+                                "{\"error\":\"Database error\"}"
+                            );
+
+                        e.printStackTrace();
+                    }
+
+                    sendResponse(
+                        exchange,
+                        response.toString()
+                    );
                 }
             );
 
@@ -334,82 +428,6 @@ public class PlacementServer {
             // =========================
 
             server.start();
-            // =========================
-// DASHBOARD API
-// =========================
-
-server.createContext(
-    "/dashboard",
-    exchange -> {
-
-        StringBuilder response =
-                new StringBuilder();
-
-        String sql =
-                "SELECT " +
-                "(SELECT COUNT(*) FROM students) AS students, " +
-                "(SELECT COUNT(*) FROM companies) AS companies, " +
-                "(SELECT COUNT(*) FROM placements) AS applications, " +
-                "(SELECT COUNT(*) FROM placements " +
-                "WHERE status = 'Selected') AS selected";
-
-        try (
-            Connection connection =
-                    DatabaseConnection.getConnection();
-
-            PreparedStatement statement =
-                    connection.prepareStatement(sql);
-
-            ResultSet result =
-                    statement.executeQuery()
-        ) {
-
-            if (result.next()) {
-
-                response.append("{");
-
-                response.append("\"students\":");
-                response.append(
-                    result.getInt("students")
-                );
-
-                response.append(",");
-
-                response.append("\"companies\":");
-                response.append(
-                    result.getInt("companies")
-                );
-
-                response.append(",");
-
-                response.append("\"applications\":");
-                response.append(
-                    result.getInt("applications")
-                );
-
-                response.append(",");
-
-                response.append("\"selected\":");
-                response.append(
-                    result.getInt("selected")
-                );
-
-                response.append("}");
-            }
-
-        } catch (Exception e) {
-
-            response =
-                new StringBuilder(
-                    "{\"error\":\"Database error\"}"
-                );
-
-            e.printStackTrace();
-        }
-
-        sendResponse(exchange, response.toString());
-    }
-);
 
             System.out.println(
                 "Placement API Server started!"
@@ -427,6 +445,10 @@ server.createContext(
                 "Placements: http://localhost:8081/placements"
             );
 
+            System.out.println(
+                "Dashboard: http://localhost:8081/dashboard"
+            );
+
         } catch (Exception e) {
 
             e.printStackTrace();
@@ -442,6 +464,12 @@ server.createContext(
             com.sun.net.httpserver.HttpExchange exchange,
             String response
     ) throws java.io.IOException {
+
+        // Allow frontend to access backend
+        exchange.getResponseHeaders().set(
+            "Access-Control-Allow-Origin",
+            "*"
+        );
 
         exchange.getResponseHeaders().set(
             "Content-Type",
